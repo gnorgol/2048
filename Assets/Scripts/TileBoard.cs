@@ -6,6 +6,7 @@ using UnityEngine;
 
 public class TileBoard : MonoBehaviour
 {
+    public GameManager gameManager;
     public Tile tilePrefab;
     public TileState[] tileStates;
     private TileGrid grid;
@@ -18,12 +19,8 @@ public class TileBoard : MonoBehaviour
         tiles = new List<Tile>();
     }
 
-    private void Start()
-    {
-        CreateTile();
-        CreateTile();
-    }
-    private void CreateTile()
+
+    public void CreateTile()
     {
         Tile tile = Instantiate(tilePrefab, grid.transform);
         tile.SetState(tileStates[0], 2);
@@ -38,6 +35,28 @@ public class TileBoard : MonoBehaviour
         HandleInput();
         
 
+    }
+    public void ClearBoard()
+    {
+        ClearGridCells();
+        ClearTiles();
+    }
+
+    private void ClearTiles()
+    {
+        foreach (Tile tile in tiles)
+        {
+            Destroy(tile.gameObject);
+        }
+        tiles.Clear();
+    }
+
+    private void ClearGridCells()
+    {
+        foreach (var cell in grid.cells)
+        {
+            cell.tile = null;
+        }
     }
 
     private void HandleInput()
@@ -159,7 +178,41 @@ public class TileBoard : MonoBehaviour
             CreateTile();
         }
 
+        // Check if the player has lost
+        if (CheckForGameOver())
+        {
+            gameManager.GameOver();
+        }
+
+
+    }
+    private bool CheckForGameOver()
+    {
+        if (tiles.Count != grid.size)
+        {
+            return false;
+        }
+        foreach (Tile tile in tiles)
+        {
+            if (CanMove(tile))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
+    private bool CanMove(Tile tile)
+    {
+        TileCell up = grid.GetAdjacentCell(tile.cell, Vector2Int.up);
+        TileCell down = grid.GetAdjacentCell(tile.cell, Vector2Int.down);
+        TileCell left = grid.GetAdjacentCell(tile.cell, Vector2Int.left);
+        TileCell right = grid.GetAdjacentCell(tile.cell, Vector2Int.right);
 
+        return up != null && CanMerge(tile, up.tile) ||
+               down != null && CanMerge(tile, down.tile) ||
+               left != null && CanMerge(tile, left.tile) ||
+               right != null && CanMerge(tile, right.tile);
+    }
 }
