@@ -28,4 +28,24 @@ public class TileGrid : MonoBehaviour
             }
         }
     }
+
+    public TileCell GetRandomEmptyCell()
+    {
+        int index = Random.Range(0, cells.Length);
+        int startIndex = index;
+
+        while (!cells[index].empty)
+        {
+           index++;
+            if (index >= cells.Length)
+            {
+                index = 0;
+            }
+            if (index == startIndex)
+            {
+                return null;
+            }
+        }
+        return cells[index];
+    }
 }
