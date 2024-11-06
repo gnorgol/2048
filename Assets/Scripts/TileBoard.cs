@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class TileBoard : MonoBehaviour
@@ -8,6 +10,7 @@ public class TileBoard : MonoBehaviour
     public TileState[] tileStates;
     private TileGrid grid;
     private List<Tile> tiles;
+    private bool waitingAnimation; // waiting for the animation to finish
 
     private void Awake()
     {
@@ -27,4 +30,136 @@ public class TileBoard : MonoBehaviour
         tile.Spawn(grid.GetRandomEmptyCell());
         tiles.Add(tile);
     }
+    private void Update()
+    {
+        if (waitingAnimation) {
+            return;
+        }
+        HandleInput();
+        
+
+    }
+
+    private void HandleInput()
+    {
+        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            Move(Vector2Int.up, 0, 1, 1, 1);
+        }
+        else if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            Move(Vector2Int.down, 0, 1, grid.height - 2, -1);
+        }
+        else if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            Move(Vector2Int.left, 1, 1, 0, 1);
+        }
+        else if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            Move(Vector2Int.right, grid.width - 2, -1, 0, 1);
+        }
+    }
+
+    private void Move(Vector2Int direction, int startX, int incrementX, int startY, int incrementY)
+    {
+        bool changed = false;
+
+        for (int x = startX; x >= 0 && x < grid.width; x += incrementX)
+        {
+            for (int y = startY; y >= 0 && y < grid.height; y += incrementY)
+            {
+                TileCell cell = grid.GetCell(x, y);
+
+                if (!cell.empty)
+                {
+                    changed |= MoveTile(cell.tile, direction);
+                }
+            }
+        }
+        if (changed)
+        {
+            StartCoroutine(WaitForChanges());
+        }
+
+    }
+    private bool MoveTile(Tile tile, Vector2Int direction)
+    {
+        TileCell newCell = null;
+        TileCell adjacent = grid.GetAdjacentCell(tile.cell, direction);
+
+        while (adjacent != null)
+        {
+            if (!adjacent.empty)
+            {
+                if (CanMerge(tile, adjacent.tile))
+                {
+                    MergeTiles(tile, adjacent.tile);
+                    return true;
+                }
+
+                break;
+            }
+
+            newCell = adjacent;
+            adjacent = grid.GetAdjacentCell(adjacent, direction);
+        }
+
+        if (newCell != null)
+        {
+            tile.MoveTo(newCell);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void MergeTiles(Tile a, Tile b)
+    {
+        tiles.Remove(a);
+        a.Merge(b.cell);
+
+        int index = Mathf.Clamp(IndexOfState(a.state) + 1, 0, tileStates.Length - 1);
+        b.SetState(tileStates[index], b.number * 2);
+
+    }
+    private int IndexOfState(TileState state)
+    {
+        for (int i = 0; i < tileStates.Length; i++)
+        {
+            if (tileStates[i] == state)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private bool CanMerge(Tile a, Tile b)
+    {
+        return a.number == b.number && !b.locked;
+    }
+
+    private IEnumerator WaitForChanges()
+    {
+        waitingAnimation = true;
+
+        yield return new WaitForSeconds(0.1f);
+
+        waitingAnimation = false;
+
+        foreach (Tile tile in tiles)
+        {
+            tile.locked = false;
+        }
+
+        // Check if the board is full
+        if (tiles.Count != grid.size)
+        {
+            CreateTile();
+        }
+
+    }
+
+
 }
